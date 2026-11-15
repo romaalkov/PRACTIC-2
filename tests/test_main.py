@@ -1,5 +1,4 @@
-
-"""Tests for stage 2 command-line output."""
+"""Tests for stage 3 command-line output."""
 
 import unittest
 from contextlib import redirect_stdout
@@ -9,32 +8,38 @@ from unittest.mock import patch
 from src.main import main
 
 
+SETTINGS = {
+    "package_name": "A",
+    "repository": "tests/data/simple.txt",
+    "test_mode": True,
+    "output_file": "graph.svg",
+    "ascii_tree": False,
+    "exclude_substring": "",
+}
+
+
 class MainTests(unittest.TestCase):
-    """Check that the CLI displays dependencies and handles errors."""
+    """Check test-mode CLI output and error reporting."""
 
-    def test_direct_dependencies_output(self):
-        """Display dependency names returned by the repository parser."""
+    def test_bfs_output(self):
+        """Print a dependency graph using the test repository."""
         output = StringIO()
-        fake_dependencies = ["libc6", "libssl3 | libressl3"]
-        with patch(
-            "src.main.get_direct_dependencies", return_value=fake_dependencies
-        ), redirect_stdout(output):
-            result = main()
-        self.assertEqual(result, 0)
-        self.assertIn("Direct dependencies of bash:", output.getvalue())
-        self.assertIn("- libc6", output.getvalue())
-        self.assertIn("- libssl3 | libressl3", output.getvalue())
+        with patch("src.main.load_config", return_value=SETTINGS):
+            with redirect_stdout(output):
+                code = main()
+        self.assertEqual(code, 0)
+        self.assertIn("A -> B, C", output.getvalue())
+        self.assertIn("D -> (none)", output.getvalue())
 
-    def test_download_error(self):
-        """Display a clear message when repository access fails."""
+    def test_missing_package(self):
+        """Display an error if the selected package is absent."""
         output = StringIO()
-        with patch(
-            "src.main.get_direct_dependencies",
-            side_effect=ValueError("Cannot read repository"),
-        ), redirect_stdout(output):
-            result = main()
-        self.assertEqual(result, 1)
-        self.assertIn("Error: Cannot read repository", output.getvalue())
+        settings = {**SETTINGS, "package_name": "Z"}
+        with patch("src.main.load_config", return_value=settings):
+            with redirect_stdout(output):
+                code = main()
+        self.assertEqual(code, 1)
+        self.assertIn("Package not found", output.getvalue())
 
 
 if __name__ == "__main__":

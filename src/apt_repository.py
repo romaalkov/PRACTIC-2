@@ -1,4 +1,3 @@
-
 """Read direct APT dependencies from an Ubuntu Packages.gz index."""
 
 import gzip
@@ -61,3 +60,29 @@ def get_direct_dependencies(url, package):
     except (OSError, EOFError) as error:
         raise ValueError(f"Cannot read repository: {error}") from error
     raise ValueError(f"Package not found in repository: {package}")
+
+
+def load_repository_graph(url):
+    """Read all packages and their potential dependencies in one download."""
+    repository = {}
+    try:
+        with urlopen(url, timeout=30) as response:
+            with gzip.GzipFile(fileobj=response, mode="rb") as archive:
+                with TextIOWrapper(archive, encoding="utf-8") as stream:
+                    for entry in iter_packages(stream):
+                        package = entry.get("Package")
+                        if not package:
+                            continue
+                        fields = ("Pre-Depends", "Depends")
+                        raw = ", ".join(
+                            entry[key] for key in fields if key in entry
+                        )
+                        groups = parse_dependencies(raw)
+                        options = [
+                            name for group in groups
+                            for name in group.split(" | ")
+                        ]
+                        repository[package] = list(dict.fromkeys(options))
+    except (OSError, EOFError, UnicodeError) as error:
+        raise ValueError(f"Cannot read repository: {error}") from error
+    return repository
