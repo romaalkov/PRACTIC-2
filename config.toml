@@ -1,0 +1,7 @@
+
+package_name = "bash"
+repository = "https://archive.ubuntu.com/ubuntu/dists/noble/main/binary-amd64/Packages.gz"
+test_mode = false
+output_file = "graph.svg"
+ascii_tree = true
+exclude_substring = ""
