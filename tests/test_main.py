@@ -1,4 +1,4 @@
-"""Tests for stage 3 command-line output."""
+"""Tests for stage 4 command-line output."""
 
 import unittest
 from contextlib import redirect_stdout
@@ -9,7 +9,7 @@ from src.main import main
 
 
 SETTINGS = {
-    "package_name": "A",
+    "package_name": "D",
     "repository": "tests/data/simple.txt",
     "test_mode": True,
     "output_file": "graph.svg",
@@ -19,20 +19,21 @@ SETTINGS = {
 
 
 class MainTests(unittest.TestCase):
-    """Check test-mode CLI output and error reporting."""
+    """Check reverse dependency output and error reporting."""
 
-    def test_bfs_output(self):
-        """Print a dependency graph using the test repository."""
+    def test_reverse_bfs_output(self):
+        """Print reverse links and list of all dependent packages."""
         output = StringIO()
         with patch("src.main.load_config", return_value=SETTINGS):
             with redirect_stdout(output):
                 code = main()
         self.assertEqual(code, 0)
-        self.assertIn("A -> B, C", output.getvalue())
-        self.assertIn("D -> (none)", output.getvalue())
+        self.assertIn("D <- B, C", output.getvalue())
+        self.assertIn("B <- A", output.getvalue())
+        self.assertIn("All reverse dependencies: B, C, A", output.getvalue())
 
-    def test_missing_package(self):
-        """Display an error if the selected package is absent."""
+    def test_unknown_package(self):
+        """Report an error when the starting package is unavailable."""
         output = StringIO()
         settings = {**SETTINGS, "package_name": "Z"}
         with patch("src.main.load_config", return_value=settings):
@@ -40,6 +41,16 @@ class MainTests(unittest.TestCase):
                 code = main()
         self.assertEqual(code, 1)
         self.assertIn("Package not found", output.getvalue())
+
+    def test_no_dependents(self):
+        """Show an explicit empty result for an unused package."""
+        output = StringIO()
+        settings = {**SETTINGS, "package_name": "A"}
+        with patch("src.main.load_config", return_value=settings):
+            with redirect_stdout(output):
+                code = main()
+        self.assertEqual(code, 0)
+        self.assertIn("All reverse dependencies: (none)", output.getvalue())
 
 
 if __name__ == "__main__":
