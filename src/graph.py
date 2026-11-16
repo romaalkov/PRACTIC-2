@@ -69,3 +69,15 @@ def build_graph(repository, start, exclude_substring=""):
                 visited.add(dependency)
                 queue.append(dependency)
     return graph
+
+
+def reverse_repository(repository):
+    """Return lists of packages that depend on each package."""
+    reversed_graph = {package: [] for package in repository}
+    for package, dependencies in repository.items():
+        for dependency in dependencies:
+            reversed_graph.setdefault(dependency, []).append(package)
+    return {
+        package: list(dict.fromkeys(dependents))
+        for package, dependents in reversed_graph.items()
+    }
