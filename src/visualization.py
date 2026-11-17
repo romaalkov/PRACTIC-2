@@ -10,6 +10,7 @@ import zlib
 
 ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_"
 SERVER_URL = "https://www.plantuml.com/plantuml/svg/"
+MAX_PLANTUML_URL_LENGTH = 6000
 
 
 def to_plantuml(graph):
@@ -88,7 +89,7 @@ def _render_local(svg_path, jar_path):
 def _render_server(source, svg_path):
     """Ask the public PlantUML server to produce SVG."""
     url = SERVER_URL + encode_plantuml(source)
-    if len(url) > 6000:
+    if len(url) > MAX_PLANTUML_URL_LENGTH:
         raise ValueError(
             "Diagram is too large for URL rendering. "
             "Set PLANTUML_JAR for local rendering."

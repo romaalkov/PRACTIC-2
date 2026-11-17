@@ -8,33 +8,32 @@ import re
 TEST_NAME = re.compile(r"[A-Z]+")
 
 
-def load_test_graph(path):
-    """Parse lines like 'A: B, C' from a test repository file."""
+def _read_test_lines(path):
+    """Read the test repository file, reporting file access problems."""
     try:
-        lines = Path(path).read_text(encoding="utf-8").splitlines()
+        return Path(path).read_text(encoding="utf-8").splitlines()
     except OSError as error:
         raise ValueError(f"Cannot read test repository: {error}") from error
 
-    repository = {}
-    for number, raw_line in enumerate(lines, start=1):
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if ":" not in line:
-            raise ValueError(f"Invalid test data on line {number}")
-        package, raw_dependencies = line.split(":", 1)
-        package = package.strip()
-        dependencies = [
-            name.strip() for name in raw_dependencies.split(",")
-            if name.strip()
-        ]
-        names = [package, *dependencies]
-        if not all(TEST_NAME.fullmatch(name) for name in names):
-            raise ValueError(f"Invalid package name on line {number}")
-        if package in repository:
-            raise ValueError(f"Duplicate package: {package}")
-        repository[package] = list(dict.fromkeys(dependencies))
 
+def _parse_test_record(line, number):
+    """Parse and validate one test record such as 'A: B, C'."""
+    if ":" not in line:
+        raise ValueError(f"Invalid test data on line {number}")
+    package, raw_dependencies = line.split(":", 1)
+    package = package.strip()
+    dependencies = [
+        name.strip() for name in raw_dependencies.split(",")
+        if name.strip()
+    ]
+    names = [package, *dependencies]
+    if not all(TEST_NAME.fullmatch(name) for name in names):
+        raise ValueError(f"Invalid package name on line {number}")
+    return package, list(dict.fromkeys(dependencies))
+
+
+def _check_test_repository(repository):
+    """Reject an empty repository or undefined dependency names."""
     if not repository:
         raise ValueError("Test repository is empty")
     referenced = {
@@ -44,6 +43,20 @@ def load_test_graph(path):
     missing = referenced - repository.keys()
     if missing:
         raise ValueError(f"Undefined packages: {', '.join(sorted(missing))}")
+
+
+def load_test_graph(path):
+    """Load test packages with uppercase Latin-letter names."""
+    repository = {}
+    for number, raw_line in enumerate(_read_test_lines(path), start=1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        package, dependencies = _parse_test_record(line, number)
+        if package in repository:
+            raise ValueError(f"Duplicate package: {package}")
+        repository[package] = dependencies
+    _check_test_repository(repository)
     return repository
 
 
@@ -53,7 +66,6 @@ def build_graph(repository, start, exclude_substring=""):
         raise ValueError(f"Package not found: {start}")
     if exclude_substring and exclude_substring in start:
         raise ValueError("The selected package matches the exclusion filter")
-
     queue = deque([start])
     visited = {start}
     graph = {}
